@@ -1,0 +1,33 @@
+
+program ::= statement*
+
+statement ::= return
+            | expression
+
+expression ::= variable-declaration
+             | function-definition
+             | function-invocation
+             | array-constant
+             | struct-constant
+             | literal
+             | identifier
+             | symbol
+
+return ::= ':=' expression
+
+variable-declaration ::= identifier ':=' expression
+
+function-definition ::= '(' '[' identifier* ']' program ')'
+
+function-invocation ::= '(' expression+ ')'
+
+array-constant ::= '[' expression* ']'
+
+struct-constant ::= '{' variable-declaration* '}'
+
+literal ::= integer-literal
+          | float-literal
+          | string-literal
+
+symbol ::= "'" identifier
+
