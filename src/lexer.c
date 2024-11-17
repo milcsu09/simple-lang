@@ -10,7 +10,7 @@
 
 #define IS_NEWLINE(ch) ((ch) == '\n' || (ch) == '\r')
 #define IS_WHITESPACE(ch) (isblank (ch) || IS_NEWLINE (ch))
-#define IS_SPECIAL(ch) (strchr ("'()[]{}", ch) != NULL)
+#define IS_SPECIAL(ch) (strchr ("'\"()[]{}", ch) != NULL)
 
 static void
 lexer_advance (struct lexer *lexer)
