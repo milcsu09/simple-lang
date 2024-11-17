@@ -2,6 +2,8 @@
 #include "parser.h"
 #include <stdlib.h>
 
+typedef struct ast *(parse_function_t)(struct parser *);
+
 static void
 parser_advance (struct parser *parser)
 {
@@ -22,6 +24,17 @@ parser_advance_match (struct parser *parser, size_t type)
   parser_advance (parser);
 }
 
+static void
+parser_push_until (struct parser *parser, struct ast *node, size_t type,
+                   parse_function_t parse_function, bool initial)
+{
+  if (initial)
+    ast_push (node, parse_function (parser));
+
+  while (!token_type_match (parser->current.type, 2, type, TOKEN_EOF))
+    ast_push (node, parse_function (parser));
+}
+
 static struct ast *parser_parse_statement (struct parser *parser);
 static struct ast *parser_parse_expression (struct parser *parser);
 
@@ -39,20 +52,11 @@ static struct ast *
 parser_parse_program (struct parser *parser)
 {
   struct ast *result;
-  size_t type = parser->current.type;
   size_t line = parser->current.line;
 
   result = ast_create (AST_PROGRAM, line);
-
-  while (!token_type_match (type, 2, TOKEN_RPAREN, TOKEN_EOF))
-    {
-      struct ast *statement;
-
-      statement = parser_parse_statement (parser);
-      ast_push (result, statement);
-
-      type = parser->current.type;
-    }
+  parser_push_until (parser, result, TOKEN_RPAREN, parser_parse_statement,
+                     false);
 
   return result;
 }
@@ -63,7 +67,7 @@ parser_parse_statement (struct parser *parser)
   size_t type = parser->current.type;
   size_t line = parser->current.line;
 
-  if (token_type_match (type, 1, TOKEN_WALRUS))
+  if (token_type_match (type, 1, TOKEN_ARROW))
     {
       struct ast *result;
       struct ast *expression;
@@ -135,30 +139,20 @@ static struct ast *
 parser_parse_function (struct parser *parser)
 {
   struct ast *result;
+  size_t line = parser->current.line;
 
   parser_advance_match (parser, TOKEN_LPAREN);
-
-  size_t line = parser->current.line;
   size_t type = parser->current.type;
 
   if (token_type_match (type, 1, TOKEN_LBRACKET))
     {
       struct ast *program;
 
-      parser_advance (parser);
-      type = parser->current.type;
+      parser_advance_match (parser, TOKEN_LBRACKET);
 
       result = ast_create (AST_FUNCTION_DEFINITION, line);
-
-      while (!token_type_match (type, 2, TOKEN_RBRACKET, TOKEN_EOF))
-        {
-          struct ast *identifier;
-
-          identifier = parser_parse_identifier (parser);
-          ast_push (result, identifier);
-
-          type = parser->current.type;
-        }
+      parser_push_until (parser, result, TOKEN_RBRACKET,
+                         parser_parse_identifier, false);
 
       parser_advance_match (parser, TOKEN_RBRACKET);
 
@@ -168,17 +162,8 @@ parser_parse_function (struct parser *parser)
   else
     {
       result = ast_create (AST_FUNCTION_INVOCATION, line);
-
-      do
-        {
-          struct ast *expression;
-
-          expression = parser_parse_expression (parser);
-          ast_push (result, expression);
-
-          type = parser->current.type;
-        }
-      while (!token_type_match (type, 2, TOKEN_RPAREN, TOKEN_EOF));
+      parser_push_until (parser, result, TOKEN_RPAREN, parser_parse_expression,
+                         true);
     }
 
   parser_advance_match (parser, TOKEN_RPAREN);
@@ -193,19 +178,10 @@ parser_parse_array (struct parser *parser)
   size_t line = parser->current.line;
 
   parser_advance_match (parser, TOKEN_LBRACKET);
-  size_t type = parser->current.type;
 
   result = ast_create (AST_ARRAY, line);
-
-  while (!token_type_match (type, 2, TOKEN_RBRACKET, TOKEN_EOF))
-    {
-      struct ast *expression;
-
-      expression = parser_parse_expression (parser);
-      ast_push (result, expression);
-
-      type = parser->current.type;
-    }
+  parser_push_until (parser, result, TOKEN_RBRACKET, parser_parse_expression,
+                     false);
 
   parser_advance_match (parser, TOKEN_RBRACKET);
 
@@ -219,19 +195,10 @@ parser_parse_struct (struct parser *parser)
   size_t line = parser->current.line;
 
   parser_advance_match (parser, TOKEN_LBRACE);
-  size_t type = parser->current.type;
 
   result = ast_create (AST_STRUCT, line);
-
-  while (!token_type_match (type, 2, TOKEN_RBRACE, TOKEN_EOF))
-    {
-      struct ast *declaration;
-
-      declaration = parser_parse_declaration (parser);
-      ast_push (result, declaration);
-
-      type = parser->current.type;
-    }
+  parser_push_until (parser, result, TOKEN_RBRACE, parser_parse_declaration,
+                     false);
 
   parser_advance_match (parser, TOKEN_RBRACE);
 
@@ -258,6 +225,8 @@ parser_parse_string (struct parser *parser)
 {
   struct ast *result;
   size_t line = parser->current.line;
+
+  parser_match (parser, TOKEN_STRING);
 
   result = ast_create (AST_STRING, line);
   result->token = parser->current;
@@ -288,6 +257,8 @@ parser_parse_symbol (struct parser *parser)
 {
   struct ast *result;
   size_t line = parser->current.line;
+
+  parser_match (parser, TOKEN_SYMBOL);
 
   result = ast_create (AST_SYMBOL, line);
   result->token = parser->current;

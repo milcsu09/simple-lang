@@ -8,28 +8,29 @@
 
 #include <stdio.h>
 
-#define NEWLINE(x) (x == '\n' || x == '\r')
+#define IS_NEWLINE(ch) ((ch) == '\n' || (ch) == '\r')
+#define IS_WHITESPACE(ch) (isblank (ch) || IS_NEWLINE (ch))
+#define IS_SPECIAL(ch) (strchr ("'()[]{}", ch) != NULL)
 
 static void
 lexer_advance (struct lexer *lexer)
 {
   lexer->index++;
-
   lexer->current = lexer->buffer[lexer->index];
 
   if (lexer->current != '\0')
     lexer->next = lexer->buffer[lexer->index + 1];
 
-  if (NEWLINE (lexer->current))
+  if (IS_NEWLINE (lexer->current))
     lexer->line++;
 }
 
 static struct token
-lexer_advance_with (struct lexer *lexer, size_t type, size_t amount)
+lexer_advance_with (struct lexer *lexer, size_t type, size_t advance)
 {
   size_t line = lexer->line;
 
-  for (size_t i = amount; i--;)
+  while (advance--)
     lexer_advance (lexer);
 
   return token_create (NULL, type, line);
@@ -58,17 +59,15 @@ lexer_parse_number (struct lexer *lexer)
 
   while (isdigit (lexer->current) || lexer->current == '.')
     {
-      if (lexer->current == '.')
-        dots++;
+      if (lexer->current == '.' && ++dots > 1)
+        error (line, "malformed floating-point number");
       lexer_advance (lexer);
     }
 
-  if (dots > 1)
-    error (lexer->line, "malformed floating-point number");
-
   char *value = lexer_copy_value (lexer, begin);
+  size_t type = !dots ? TOKEN_INTEGER : TOKEN_FLOAT;
 
-  return token_create (value, !dots ? TOKEN_INTEGER : TOKEN_FLOAT, line);
+  return token_create (value, type, line);
 }
 
 static struct token
@@ -81,8 +80,8 @@ lexer_parse_string (struct lexer *lexer)
 
   while (lexer->current != '"')
     {
-      if (NEWLINE (lexer->current) || lexer->current == '\0')
-        error (lexer->line, "unterminated string-literal");
+      if (IS_NEWLINE (lexer->current) || lexer->current == '\0')
+        error (line, "unterminated string-literal");
       lexer_advance (lexer);
     }
 
@@ -94,22 +93,27 @@ lexer_parse_string (struct lexer *lexer)
 }
 
 static struct token
-lexer_parse_identifier (struct lexer *lexer)
+lexer_parse_word (struct lexer *lexer)
 {
+  bool symbol = false;
+  if ((symbol = lexer->current == '\''))
+    lexer_advance (lexer);
+
   size_t line = lexer->line;
   size_t begin = lexer->index;
 
   while ((ispunct (lexer->current) || isalnum (lexer->current))
-         && strchr ("'()[]{}", lexer->current) == NULL
-         && !(lexer->current == ':' && lexer->next == '='))
+         && !(lexer->current == ':' && lexer->next == '=')
+         && !IS_SPECIAL (lexer->current))
     lexer_advance (lexer);
 
   if (begin == lexer->index)
-    error (lexer->line, "expected character");
+    error (line, "expected character");
 
   char *value = lexer_copy_value (lexer, begin);
+  size_t type = !symbol ? TOKEN_IDENTIFIER : TOKEN_SYMBOL;
 
-  return token_create (value, TOKEN_IDENTIFIER, line);
+  return token_create (value, type, line);
 }
 
 struct lexer *
@@ -127,7 +131,7 @@ lexer_create (char *buffer)
       lexer->next = buffer[1];
     }
 
-  if (NEWLINE (lexer->current))
+  if (IS_NEWLINE (lexer->current))
     lexer->line++;
 
   return lexer;
@@ -144,42 +148,40 @@ lexer_next (struct lexer *lexer)
 {
   for (; lexer->current != '\0'; lexer_advance (lexer))
     {
-      if (isblank (lexer->current) || lexer->current == '\n')
+      if (IS_WHITESPACE (lexer->current))
         continue;
 
-      if (isdigit (lexer->current))
-        return lexer_parse_number (lexer);
-      else if (lexer->current == '"')
-        return lexer_parse_string (lexer);
-      else if (lexer->current == ':' && lexer->next == '=')
-        return lexer_advance_with (lexer, TOKEN_WALRUS, 2);
-      else if (lexer->current == '(')
-        return lexer_advance_with (lexer, TOKEN_LPAREN, 1);
-      else if (lexer->current == ')')
-        return lexer_advance_with (lexer, TOKEN_RPAREN, 1);
-      else if (lexer->current == '[')
-        return lexer_advance_with (lexer, TOKEN_LBRACKET, 1);
-      else if (lexer->current == ']')
-        return lexer_advance_with (lexer, TOKEN_RBRACKET, 1);
-      else if (lexer->current == '{')
-        return lexer_advance_with (lexer, TOKEN_LBRACE, 1);
-      else if (lexer->current == '}')
-        return lexer_advance_with (lexer, TOKEN_RBRACE, 1);
-      else if (ispunct (lexer->current) || isalpha (lexer->current))
+      switch (lexer->current)
         {
-          bool symbol = false;
-          struct token identifier;
-
-          if ((symbol = lexer->current == '\''))
-            lexer_advance (lexer);
-
-          identifier = lexer_parse_identifier (lexer);
-          identifier.type = symbol ? TOKEN_SYMBOL : identifier.type;
-
-          return identifier;
+        case '(':
+          return lexer_advance_with (lexer, TOKEN_LPAREN, 1);
+        case ')':
+          return lexer_advance_with (lexer, TOKEN_RPAREN, 1);
+        case '[':
+          return lexer_advance_with (lexer, TOKEN_LBRACKET, 1);
+        case ']':
+          return lexer_advance_with (lexer, TOKEN_RBRACKET, 1);
+        case '{':
+          return lexer_advance_with (lexer, TOKEN_LBRACE, 1);
+        case '}':
+          return lexer_advance_with (lexer, TOKEN_RBRACE, 1);
+        default:
+          if (lexer->current == '-' && lexer->next == '-')
+            while (!IS_NEWLINE (lexer->current))
+              lexer_advance (lexer);
+          else if (lexer->current == '-' && lexer->next == '>')
+            return lexer_advance_with (lexer, TOKEN_ARROW, 2);
+          else if (lexer->current == ':' && lexer->next == '=')
+            return lexer_advance_with (lexer, TOKEN_WALRUS, 2);
+          else if (lexer->current == '"')
+            return lexer_parse_string (lexer);
+          else if (isdigit (lexer->current))
+            return lexer_parse_number (lexer);
+          else if (ispunct (lexer->current) || isalpha (lexer->current))
+            return lexer_parse_word (lexer);
+          else
+            error (lexer->line, "unexpected character `%c`", lexer->current);
         }
-
-      error (lexer->line, "unexpected character `%c`", lexer->current);
     }
 
   return token_create (NULL, TOKEN_EOF, lexer->line);
@@ -190,12 +192,13 @@ lexer_peek (struct lexer *lexer)
 {
   size_t index = lexer->index;
   size_t line = lexer->line;
-  bool newline = NEWLINE (lexer->current);
+  bool newline = IS_NEWLINE (lexer->current);
 
   struct token token = lexer_next (lexer);
 
   lexer->index = index - 1;
   lexer->line = line - newline;
+
   lexer_advance (lexer);
 
   return token;

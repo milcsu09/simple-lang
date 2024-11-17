@@ -2,6 +2,23 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
+static const char *const TYPES[] = {
+  "INTEGER",
+  "FLOAT",
+  "STRING",
+  "IDENTIFIER",
+  "SYMBOL",
+  "ARROW",
+  "WALRUS",
+  "LPAREN",
+  "RPAREN",
+  "LBRACKET",
+  "RBRACKET",
+  "LBRACE",
+  "RBRACE",
+  "EOF"
+};
+
 struct token
 token_create (char *value, size_t type, size_t line)
 {
@@ -18,9 +35,7 @@ void
 token_destroy (struct token token)
 {
   free (token.value);
-
   token.value = NULL;
-  token.type = TOKEN_EOF;
 }
 
 bool
@@ -39,22 +54,6 @@ token_type_match (size_t type, size_t n, ...)
   va_end (va);
   return false;
 }
-  
-static const char *const TYPES[] = {
-  "INTEGER",
-  "FLOAT",
-  "STRING",
-  "IDENTIFIER",
-  "SYMBOL",
-  "WALRUS",
-  "LPAREN",
-  "RPAREN",
-  "LBRACKET",
-  "RBRACKET",
-  "LBRACE",
-  "RBRACE",
-  "EOF"
-};
 
 const char *
 token_type_string (size_t type)

@@ -13,7 +13,7 @@ expression ::= variable-declaration
              | identifier
              | symbol
 
-return ::= ':=' expression
+return ::= '->' expression
 
 variable-declaration ::= identifier ':=' expression
 
