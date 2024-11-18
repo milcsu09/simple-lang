@@ -31,7 +31,7 @@ array_destroy (void *array)
   free ((char *)array - HEADER_SIZE);
 }
 
-void (array_push) (void **array, const void *item)
+void (array_append) (void **array, const void *item)
 {
   size_t length = array_length (*array);
   size_t capacity = array_capacity (*array);

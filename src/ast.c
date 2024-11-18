@@ -45,7 +45,7 @@ ast_destroy (struct ast *node)
 }
 
 void
-ast_push (struct ast *node, struct ast *child)
+ast_append (struct ast *node, struct ast *child)
 {
   if (node->child == NULL)
     node->child = child;

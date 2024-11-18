@@ -25,14 +25,14 @@ parser_advance_match (struct parser *parser, size_t type)
 }
 
 static void
-parser_push_until (struct parser *parser, struct ast *node, size_t type,
-                   parse_function_t parse_function, bool initial)
+parser_append_until (struct parser *parser, struct ast *node, size_t type,
+                     parse_function_t parse_function, bool initial)
 {
   if (initial)
-    ast_push (node, parse_function (parser));
+    ast_append (node, parse_function (parser));
 
   while (!token_type_match (parser->current.type, 2, type, TOKEN_EOF))
-    ast_push (node, parse_function (parser));
+    ast_append (node, parse_function (parser));
 }
 
 static struct ast *parser_parse_statement (struct parser *parser);
@@ -55,8 +55,8 @@ parser_parse_program (struct parser *parser)
   size_t line = parser->current.line;
 
   result = ast_create (AST_PROGRAM, line);
-  parser_push_until (parser, result, TOKEN_RPAREN, parser_parse_statement,
-                     false);
+  parser_append_until (parser, result, TOKEN_RPAREN, parser_parse_statement,
+                       false);
 
   return result;
 }
@@ -76,7 +76,7 @@ parser_parse_statement (struct parser *parser)
       expression = parser_parse_expression (parser);
 
       result = ast_create (AST_RETURN, line);
-      ast_push (result, expression);
+      ast_append (result, expression);
 
       return result;
     }
@@ -130,8 +130,8 @@ parser_parse_declaration (struct parser *parser)
   expression = parser_parse_expression (parser);
 
   result = ast_create (AST_VARIABLE_DECLARATION, line);
-  ast_push (result, identifier);
-  ast_push (result, expression);
+  ast_append (result, identifier);
+  ast_append (result, expression);
 
   return result;
 }
@@ -152,19 +152,19 @@ parser_parse_function (struct parser *parser)
       parser_advance_match (parser, TOKEN_LBRACKET);
 
       result = ast_create (AST_FUNCTION_DEFINITION, line);
-      parser_push_until (parser, result, TOKEN_RBRACKET,
-                         parser_parse_identifier, false);
+      parser_append_until (parser, result, TOKEN_RBRACKET,
+                           parser_parse_identifier, false);
 
       parser_advance_match (parser, TOKEN_RBRACKET);
 
       program = parser_parse_program (parser);
-      ast_push (result, program);
+      ast_append (result, program);
     }
   else
     {
       result = ast_create (AST_FUNCTION_INVOCATION, line);
-      parser_push_until (parser, result, TOKEN_RPAREN, parser_parse_expression,
-                         true);
+      parser_append_until (parser, result, TOKEN_RPAREN,
+                           parser_parse_expression, true);
     }
 
   parser_advance_match (parser, TOKEN_RPAREN);
@@ -181,8 +181,8 @@ parser_parse_array (struct parser *parser)
   parser_advance_match (parser, TOKEN_LBRACKET);
 
   result = ast_create (AST_ARRAY, line);
-  parser_push_until (parser, result, TOKEN_RBRACKET, parser_parse_expression,
-                     false);
+  parser_append_until (parser, result, TOKEN_RBRACKET, parser_parse_expression,
+                       false);
 
   parser_advance_match (parser, TOKEN_RBRACKET);
 
@@ -198,8 +198,8 @@ parser_parse_structure (struct parser *parser)
   parser_advance_match (parser, TOKEN_LBRACE);
 
   result = ast_create (AST_STRUCTURE, line);
-  parser_push_until (parser, result, TOKEN_RBRACE, parser_parse_declaration,
-                     false);
+  parser_append_until (parser, result, TOKEN_RBRACE, parser_parse_declaration,
+                       false);
 
   parser_advance_match (parser, TOKEN_RBRACE);
 

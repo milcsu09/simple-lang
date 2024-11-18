@@ -34,7 +34,7 @@ struct ast
 struct ast *ast_create (size_t type, size_t line);
 void ast_destroy (struct ast *node);
 
-void ast_push (struct ast *node, struct ast *child);
+void ast_append (struct ast *node, struct ast *child);
 const char *ast_type_string (size_t type);
 
 void ast_print_debug (struct ast *node, size_t depth);
