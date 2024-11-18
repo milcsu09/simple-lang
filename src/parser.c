@@ -1,5 +1,5 @@
-#include "common.h"
 #include "parser.h"
+#include "common.h"
 #include <stdlib.h>
 
 typedef struct ast *(parse_function_t)(struct parser *);
@@ -41,7 +41,7 @@ static struct ast *parser_parse_expression (struct parser *parser);
 static struct ast *parser_parse_declaration (struct parser *parser);
 static struct ast *parser_parse_function (struct parser *parser);
 static struct ast *parser_parse_array (struct parser *parser);
-static struct ast *parser_parse_struct (struct parser *parser);
+static struct ast *parser_parse_structure (struct parser *parser);
 
 static struct ast *parser_parse_number (struct parser *parser);
 static struct ast *parser_parse_string (struct parser *parser);
@@ -94,7 +94,7 @@ parser_parse_expression (struct parser *parser)
   else if (token_type_match (type, 1, TOKEN_LBRACKET))
     return parser_parse_array (parser);
   else if (token_type_match (type, 1, TOKEN_LBRACE))
-    return parser_parse_struct (parser);
+    return parser_parse_structure (parser);
   else if (token_type_match (type, 2, TOKEN_INTEGER, TOKEN_FLOAT))
     return parser_parse_number (parser);
   else if (token_type_match (type, 1, TOKEN_STRING))
@@ -105,7 +105,7 @@ parser_parse_expression (struct parser *parser)
       if (peek.value != NULL)
         free (peek.value);
 
-      if (token_type_match (peek.type, 1, TOKEN_WALRUS))
+      if (token_type_match (peek.type, 1, TOKEN_EQUALS))
         return parser_parse_declaration (parser);
       return parser_parse_identifier (parser);
     }
@@ -124,7 +124,8 @@ parser_parse_declaration (struct parser *parser)
   size_t line = parser->current.line;
 
   identifier = parser_parse_identifier (parser);
-  parser_advance_match (parser, TOKEN_WALRUS);
+
+  parser_advance_match (parser, TOKEN_EQUALS);
 
   expression = parser_parse_expression (parser);
 
@@ -189,14 +190,14 @@ parser_parse_array (struct parser *parser)
 }
 
 static struct ast *
-parser_parse_struct (struct parser *parser)
+parser_parse_structure (struct parser *parser)
 {
   struct ast *result;
   size_t line = parser->current.line;
 
   parser_advance_match (parser, TOKEN_LBRACE);
 
-  result = ast_create (AST_STRUCT, line);
+  result = ast_create (AST_STRUCTURE, line);
   parser_push_until (parser, result, TOKEN_RBRACE, parser_parse_declaration,
                      false);
 

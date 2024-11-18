@@ -1,5 +1,5 @@
-#include "common.h"
 #include "lexer.h"
+#include "common.h"
 #include "token.h"
 #include <ctype.h>
 #include <stdbool.h>
@@ -10,7 +10,7 @@
 
 #define IS_NEWLINE(ch) ((ch) == '\n' || (ch) == '\r')
 #define IS_WHITESPACE(ch) (isblank (ch) || IS_NEWLINE (ch))
-#define IS_SPECIAL(ch) (strchr ("'\"()[]{}", ch) != NULL)
+#define IS_SPECIAL(ch) (strchr ("'\"=()[]{}", ch) != NULL)
 
 static void
 lexer_advance (struct lexer *lexer)
@@ -43,9 +43,7 @@ lexer_copy_value (struct lexer *lexer, size_t begin)
   char *value;
 
   value = calloc (size + 1, sizeof (char));
-  strncpy (value, &lexer->buffer[begin], size);
-
-  value[size] = '\0';
+  memcpy (value, &lexer->buffer[begin], size);
 
   return value;
 }
@@ -103,7 +101,7 @@ lexer_parse_word (struct lexer *lexer)
   size_t begin = lexer->index;
 
   while ((ispunct (lexer->current) || isalnum (lexer->current))
-         && !(lexer->current == ':' && lexer->next == '=')
+         && !(lexer->current == '=' && lexer->next == '>')
          && !IS_SPECIAL (lexer->current))
     lexer_advance (lexer);
 
@@ -165,14 +163,15 @@ lexer_next (struct lexer *lexer)
           return lexer_advance_with (lexer, TOKEN_LBRACE, 1);
         case '}':
           return lexer_advance_with (lexer, TOKEN_RBRACE, 1);
+        case '=':
+          if (lexer->next == '>')
+            return lexer_advance_with (lexer, TOKEN_ARROW, 2);
+          else
+            return lexer_advance_with (lexer, TOKEN_EQUALS, 1);
         default:
           if (lexer->current == '-' && lexer->next == '-')
             while (!IS_NEWLINE (lexer->current))
               lexer_advance (lexer);
-          else if (lexer->current == '-' && lexer->next == '>')
-            return lexer_advance_with (lexer, TOKEN_ARROW, 2);
-          else if (lexer->current == ':' && lexer->next == '=')
-            return lexer_advance_with (lexer, TOKEN_WALRUS, 2);
           else if (lexer->current == '"')
             return lexer_parse_string (lexer);
           else if (isdigit (lexer->current))

@@ -8,14 +8,14 @@ static const char *const TYPES[] = {
   "STRING",
   "IDENTIFIER",
   "SYMBOL",
-  "ARROW",
-  "WALRUS",
   "LPAREN",
   "RPAREN",
   "LBRACKET",
   "RBRACKET",
   "LBRACE",
   "RBRACE",
+  "ARROW",
+  "EQUALS",
   "EOF"
 };
 

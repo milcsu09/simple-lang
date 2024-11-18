@@ -2,6 +2,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static const char *const TYPES[] = {
+  "PROGRAM",
+  "RETURN",
+  "VARIABLE_DECLARATION",
+  "FUNCTION_DEFINITION",
+  "FUNCTION_INVOCATION",
+  "ARRAY",
+  "STRUCTURE",
+  "INTEGER",
+  "FLOAT",
+  "STRING",
+  "IDENTIFIER",
+  "SYMBOL"
+};
+
 struct ast *
 ast_create (size_t type, size_t line)
 {
@@ -45,18 +60,11 @@ ast_push (struct ast *node, struct ast *child)
     }
 }
 
-static const char *const TYPES[] = { "PROGRAM",
-                                     "RETURN",
-                                     "VARIABLE_DECLARATION",
-                                     "FUNCTION_DEFINITION",
-                                     "FUNCTION_INVOCATION",
-                                     "ARRAY",
-                                     "STRUCT",
-                                     "INTEGER",
-                                     "FLOAT",
-                                     "STRING",
-                                     "IDENTIFIER",
-                                     "SYMBOL" };
+const char *
+ast_type_string (size_t type)
+{
+  return TYPES[type];
+}
 
 void
 ast_print_debug (struct ast *node, size_t depth)
@@ -67,7 +75,7 @@ ast_print_debug (struct ast *node, size_t depth)
   for (size_t i = depth * 4; i--;)
     printf (" ");
 
-  printf ("%s:", TYPES[node->type]);
+  printf ("%s:", ast_type_string (node->type));
 
   if (node->token.value)
     printf (" `%s`", node->token.value);
